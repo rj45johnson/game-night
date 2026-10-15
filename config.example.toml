@@ -1,0 +1,69 @@
+# Copy to config.toml and adjust. Relative paths are resolved against this file's folder.
+
+[retroarch]
+exe = 'C:\RetroArch-Win64\retroarch.exe'
+
+[library]
+rom_root = 'D:\Games\ROMs'   # one sub-folder per system, each with a ROMs\ folder inside
+data_dir = 'data'            # catalog, caches, downloaded thumbnails (git-ignored)
+
+[server]
+host = "127.0.0.1"           # loopback only -- the API can start programs
+port = 8777
+
+# Console systems scanned by `gamenight build`. `database` is the libretro database name (used for
+# the player-count DAT and thumbnails); `header_bytes` is a header size worth stripping before CRC
+# matching; `remap_dir` enables per-game multitap remaps for 3+ player games.
+[[systems]]
+folder = "Super Nintendo"
+short = "SNES"
+database = "Nintendo - Super Nintendo Entertainment System"
+core = "snes9x"
+header_bytes = 512
+remap_dir = "Snes9x"
+
+[[systems]]
+folder = "Nintendo"
+short = "NES"
+database = "Nintendo - Nintendo Entertainment System"
+core = "mesen"          # detects Four Score games from its own database
+header_bytes = 16
+
+[[systems]]
+folder = "Sega Genesis"
+short = "Genesis"
+database = "Sega - Mega Drive - Genesis"
+core = "genesis_plus_gx"
+remap_dir = "Genesis Plus GX"
+
+[[systems]]
+folder = "Nintendo 64"
+short = "N64"
+database = "Nintendo - Nintendo 64"
+core = "mupen64plus_next"
+
+[[systems]]
+folder = "TurboGrafx-16"
+short = "TurboGrafx"
+database = "NEC - PC Engine - TurboGrafx 16"
+core = "mednafen_pce_fast"  # five ports, multitap always attached
+header_bytes = 512
+
+[[systems]]
+folder = "Atari 2600"
+short = "Atari 2600"
+database = "Atari - 2600"
+core = "stella"
+
+[[systems]]
+folder = "Atari 7800"
+short = "Atari 7800"
+database = "Atari - 7800"
+core = "prosystem"
+header_bytes = 128
+
+[[systems]]
+folder = "Atari Jaguar"
+short = "Jaguar"
+database = "Atari - Jaguar"
+core = "virtualjaguar"

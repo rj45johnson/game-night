@@ -1,0 +1,21 @@
+[project]
+name = "gamenight"
+version = "1.0.0"
+description = "Couch-friendly RetroArch front end that lists only great co-op, party and 2-player games"
+readme = "README.md"
+license = { text = "MIT" }
+requires-python = ">=3.11"
+dependencies = []
+
+[project.scripts]
+gamenight = "gamenight.__main__:main"
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["gamenight*"]
+
+[tool.setuptools.package-data]
+gamenight = ["web/*.html"]

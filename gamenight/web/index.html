@@ -1,0 +1,185 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Game Night</title>
+<style>
+  :root {
+    --bg: #0e1016; --panel: #171a23; --card: #1d2130; --line: #2a2f42; --text: #eef0f6; --muted: #9aa1b5;
+    --accent: #ffb020; --coop: #2fd27a; --vs: #5aa8ff; --two: #c58bff; --focus: #ffd34d;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.4 "Segoe UI", system-ui, sans-serif; }
+  #top { position: sticky; top: 0; z-index: 5; background: rgba(14,16,22,.97); backdrop-filter: blur(6px);
+         border-bottom: 1px solid var(--line); box-shadow: 0 6px 18px rgba(0,0,0,.45); }
+  header { padding: 10px 20px 8px; display: flex; flex-wrap: wrap; gap: 10px 16px; align-items: center; }
+  h1 { margin: 0; font-size: 22px; letter-spacing: .5px; } h1 span { color: var(--accent); }
+  #search { flex: 1 1 220px; max-width: 360px; background: var(--panel); border: 1px solid var(--line); color: var(--text);
+            border-radius: 8px; padding: 8px 12px; font-size: 15px; }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; }
+  .chip { background: var(--panel); border: 1px solid var(--line); color: var(--muted); border-radius: 999px; padding: 5px 12px;
+          cursor: pointer; font-size: 13px; user-select: none; }
+  .chip.on { background: var(--accent); color: #1a1200; border-color: var(--accent); font-weight: 600; }
+  #hero { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(220px, 1.1fr); gap: 12px; padding: 4px 20px 12px; }
+  #hero img { width: 100%; height: clamp(110px, 21vh, 200px); object-fit: contain; background: #000; border-radius: 8px; border: 1px solid var(--line); }
+  #hero .info { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 12px 16px; overflow: hidden; }
+  #hero .info h2 { margin: 0 0 6px; font-size: clamp(17px, 2.2vh, 22px); }
+  #hero .hint { color: var(--muted); font-size: 12px; margin-top: 8px; }
+  section { padding: 6px 20px 10px; }
+  section h3 { margin: 14px 0 10px; font-size: 17px; display: flex; gap: 10px; align-items: baseline; }
+  section h3 small { color: var(--muted); font-weight: 400; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 14px; }
+  .card { background: var(--card); border: 2px solid transparent; border-radius: 10px; overflow: hidden; cursor: pointer;
+          transition: transform .08s, border-color .08s; outline: none; }
+  .card:hover, .card.focus { border-color: var(--focus); transform: scale(1.04); }
+  .card .art { aspect-ratio: 3 / 4; background: #0a0b10 center/contain no-repeat; display: flex; align-items: center; justify-content: center;
+               color: var(--muted); font-size: 12px; text-align: center; padding: 8px; }
+  .card .t { padding: 7px 9px 9px; font-size: 13px; line-height: 1.25; height: 3.6em; overflow: hidden; }
+  .badges { display: flex; gap: 4px; padding: 0 9px 9px; flex-wrap: wrap; }
+  .b { font-size: 11px; border-radius: 4px; padding: 1px 6px; font-weight: 600; }
+  .b.sys { background: #2a2f42; color: #cfd5e6; } .b.coop { background: var(--coop); color: #04210f; }
+  .b.p4 { background: var(--vs); color: #001933; } .b.p2 { background: var(--two); color: #1f0636; }
+  #toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); background: var(--accent); color: #1a1200;
+           padding: 10px 18px; border-radius: 8px; font-weight: 600; opacity: 0; transition: opacity .2s; pointer-events: none; }
+  #toast.show { opacity: 1; }
+  .empty { color: var(--muted); padding: 20px; }
+  @media (max-width: 760px) { #hero { grid-template-columns: 1fr 1fr; } #hero #h-snap { display: none; } #hero img { height: 110px; } #hero .hint { display: none; } }
+  @media (max-height: 620px) { #hero .hint { display: none; } }
+</style>
+</head>
+<body>
+<div id="top">
+<header>
+  <h1>Game <span>Night</span></h1>
+  <input id="search" placeholder="Search games…" autocomplete="off">
+  <div class="chips" id="systems"></div>
+</header>
+<div id="hero">
+  <img id="h-title" alt="">
+  <img id="h-snap" alt="">
+  <div class="info"><h2 id="h-name">Pick a game</h2><div id="h-meta"></div>
+    <div class="hint">Controller: D-pad / stick to move · <b>A</b> or <b>B</b> to play · <b>LB/RB</b> change system<br>
+      Keyboard: arrows + Enter. In a game: <b>Home</b> opens the RetroArch menu (Quit is there).</div></div>
+</div>
+</div>
+<main id="main"></main>
+<div id="toast"></div>
+<script>
+const SECTIONS = [
+  { key: 'coop', title: 'Co-op · 3–4 players', sub: 'everyone on the same team', test: g => g.coop },
+  { key: 'p4',   title: '4+ players · versus & party', sub: '', test: g => !g.coop && g.players >= 3 },
+  { key: 'p2',   title: '2-player classics', sub: '', test: g => g.players < 3 },
+];
+let games = [], sys = 'All', q = '', focusIdx = 0, cards = [];
+const $ = s => document.querySelector(s);
+// name in the URL: ids shift when the catalog is rebuilt, so the browser cache must key on the game itself
+const thumb = (id, kind, name) => `/api/thumb?id=${id}&kind=${kind}&n=${encodeURIComponent(name)}`;
+
+function toast(msg) { const t = $('#toast'); t.textContent = msg; t.classList.add('show'); clearTimeout(t._h); t._h = setTimeout(() => t.classList.remove('show'), 2500); }
+
+function renderSystems() {
+  const counts = {}; games.forEach(g => counts[g.sys] = (counts[g.sys] || 0) + 1);
+  const list = ['All', ...Object.keys(counts).sort((a, b) => counts[b] - counts[a])];
+  $('#systems').innerHTML = list.map(s => `<span class="chip${s === sys ? ' on' : ''}" data-s="${s}">${s}${s === 'All' ? '' : ' · ' + counts[s]}</span>`).join('');
+  $('#systems').querySelectorAll('.chip').forEach(c => c.onclick = () => { sys = c.dataset.s; render(); });
+}
+
+const io = new IntersectionObserver(es => es.forEach(e => {
+  if (!e.isIntersecting) return; const a = e.target; io.unobserve(a);
+  const id = a.dataset.id, tryKind = ['Named_Boxarts', 'Named_Titles', 'Named_Snaps'];
+  const next = i => { if (i >= tryKind.length) { a.textContent = a.dataset.name; return; }
+    const img = new Image(); img.onload = () => a.style.backgroundImage = `url("${img.src}")`; img.onerror = () => next(i + 1); img.src = thumb(id, tryKind[i], a.dataset.name); };
+  next(0);
+}), { rootMargin: '600px' });
+
+function render() {
+  renderSystems();
+  const ql = q.toLowerCase();
+  const vis = games.filter(g => (sys === 'All' || g.sys === sys) && (!ql || g.name.toLowerCase().includes(ql)));
+  const main = $('#main'); main.innerHTML = '';
+  SECTIONS.forEach(s => {
+    const list = vis.filter(s.test); if (!list.length) return;
+    const sec = document.createElement('section');
+    sec.innerHTML = `<h3>${s.title} <small>${list.length} games${s.sub ? ' · ' + s.sub : ''}</small></h3><div class="grid"></div>`;
+    const grid = sec.querySelector('.grid');
+    list.forEach(g => {
+      const c = document.createElement('div'); c.className = 'card'; c.tabIndex = -1; c.dataset.id = g.id;
+      const pb = g.players >= 3 ? `<span class="b p4">${g.players}P</span>` : `<span class="b p2">2P</span>`;
+      c.innerHTML = `<div class="art" data-id="${g.id}" data-name="${g.name.replace(/"/g, '&quot;')}"></div><div class="t">${g.name}</div>
+        <div class="badges"><span class="b sys">${g.sys}</span>${pb}${g.coop ? '<span class="b coop">CO-OP</span>' : ''}</div>`;
+      c.onclick = () => launch(g); c.onmouseenter = () => setFocus(cards.indexOf(c), false);
+      grid.appendChild(c); io.observe(c.querySelector('.art'));
+    });
+    main.appendChild(sec);
+  });
+  cards = [...document.querySelectorAll('.card')];
+  if (!cards.length) main.innerHTML = '<div class="empty">No games match.</div>';
+  setFocus(Math.min(focusIdx, cards.length - 1), false);
+}
+
+function setFocus(i, scroll = true) {
+  if (i < 0 || !cards[i]) return;
+  cards.forEach(c => c.classList.remove('focus')); focusIdx = i; const c = cards[i]; c.classList.add('focus');
+  if (scroll) {
+    const topH = $('#top').getBoundingClientRect().bottom, r = c.getBoundingClientRect(), pad = 16;
+    if (r.top < topH + pad) window.scrollBy({ top: r.top - topH - pad, behavior: 'smooth' });
+    else if (r.bottom > innerHeight - pad) window.scrollBy({ top: r.bottom - innerHeight + pad, behavior: 'smooth' });
+  }
+  const g = games.find(x => x.id == c.dataset.id);
+  $('#h-name').textContent = g.name;
+  $('#h-meta').innerHTML = `<span class="b sys">${g.sys}</span> ${g.players >= 3 ? `<span class="b p4">${g.players} players</span>` : '<span class="b p2">2 players</span>'} ${g.coop ? '<span class="b coop">CO-OP</span>' : ''}`;
+  for (const [el, kind] of [['#h-title', 'Named_Titles'], ['#h-snap', 'Named_Snaps']]) {
+    const img = $(el); img.style.visibility = 'hidden'; img.onload = () => img.style.visibility = 'visible'; img.onerror = () => img.style.visibility = 'hidden'; img.src = thumb(g.id, kind, g.name);
+  }
+}
+
+function move(dx, dy) {
+  if (!cards.length) return; const r = cards[focusIdx].getBoundingClientRect(), cx = r.left + r.width / 2, cy = r.top + r.height / 2;
+  let best = -1, bestD = Infinity;
+  cards.forEach((c, i) => { if (i === focusIdx) return; const b = c.getBoundingClientRect(), x = b.left + b.width / 2 - cx, y = b.top + b.height / 2 - cy;
+    if (dx && Math.sign(x) !== dx || dy && Math.sign(y) !== dy) return;
+    if (dx && Math.abs(y) > r.height / 2 || dy && Math.abs(y) < 5) return;
+    const d = dx ? Math.abs(x) : Math.abs(y) * 4 + Math.abs(x); if (d < bestD) { bestD = d; best = i; } });
+  if (best >= 0) setFocus(best);
+}
+
+async function launch(g) {
+  toast(`Starting ${g.name}…`);
+  const r = await fetch('/api/launch', { method: 'POST', body: JSON.stringify({ id: g.id }) }).then(r => r.json()).catch(() => ({}));
+  if (!r.ok) toast('Could not start that game');
+}
+
+function cycleSystem(d) { const chips = [...document.querySelectorAll('.chip')].map(c => c.dataset.s); sys = chips[(chips.indexOf(sys) + d + chips.length) % chips.length]; focusIdx = 0; render(); }
+
+document.addEventListener('keydown', e => {
+  if (e.target === $('#search') && !['ArrowDown', 'Enter', 'Escape'].includes(e.key)) return;
+  const k = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] }[e.key];
+  if (k) { e.preventDefault(); $('#search').blur(); move(...k); }
+  else if (e.key === 'Enter' && cards[focusIdx]) { e.preventDefault(); cards[focusIdx].click(); }
+  else if (e.key === 'Escape') { $('#search').value = q = ''; render(); }
+});
+$('#search').addEventListener('input', e => { q = e.target.value; focusIdx = 0; render(); });
+
+// Gamepad: poll; repeat directions while held
+let held = {}, lastT = {};
+function pad() {
+  // Only react while this page is the active window: the browser keeps reading pads behind a running
+  // game, and an A press there would relaunch (restart) the game.
+  if (!document.hasFocus()) { held = {}; requestAnimationFrame(pad); return; }
+  const gps = navigator.getGamepads ? [...navigator.getGamepads()].filter(Boolean) : [];
+  const now = performance.now(), act = {};
+  gps.forEach(gp => { const b = i => gp.buttons[i] && gp.buttons[i].pressed, ax = gp.axes || [];
+    act.l = act.l || b(14) || ax[0] < -.6; act.r = act.r || b(15) || ax[0] > .6; act.u = act.u || b(12) || ax[1] < -.6; act.d = act.d || b(13) || ax[1] > .6;
+    act.a = act.a || b(0) || b(1); act.lb = act.lb || b(4); act.rb = act.rb || b(5); });
+  const fire = (k, fn, rep) => { if (act[k]) { if (!held[k] || (rep && now - lastT[k] > (held[k] === 1 ? 380 : 110))) { fn(); held[k] = held[k] ? 2 : 1; lastT[k] = now; } } else held[k] = 0; };
+  fire('l', () => move(-1, 0), 1); fire('r', () => move(1, 0), 1); fire('u', () => move(0, -1), 1); fire('d', () => move(0, 1), 1);
+  fire('a', () => cards[focusIdx] && cards[focusIdx].click()); fire('lb', () => cycleSystem(-1)); fire('rb', () => cycleSystem(1));
+  requestAnimationFrame(pad);
+}
+requestAnimationFrame(pad);
+
+fetch('/api/games').then(r => r.json()).then(g => { games = g; render(); });
+</script>
+</body>
+</html>

@@ -1,0 +1,25 @@
+# local configuration and generated data (catalog, caches, downloaded thumbnails)
+config.toml
+data/
+
+# never commit game content
+*.zip
+*.7z
+*.rar
+*.iso
+*.chd
+*.cue
+*.bin
+*.smc
+*.sfc
+*.nes
+*.gen
+*.z64
+*.v64
+*.n64
+*.cdi
+*.gdi
+
+__pycache__/
+*.pyc
+.venv/
